@@ -1,0 +1,8 @@
+### Copy of requirements.txt file
+
+fastapi
+pydantic
+sqlalchemy
+uvicorn
+aiosqlite
+httpx

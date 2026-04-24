@@ -1,3 +1,42 @@
+# --- Python / FastAPI ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Go ---
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+# Test binary, built with `go test -c`
+*.test
+# Output of the go coverage tool, e.g. out.out
+*.out
+# Dependency directories (only if you don't use Go modules)
+# vendor/
+
+# --- Database ---
+# Ignore the local SQLite database so you don't commit your test data
+*.sqlite
+*.sqlite-journal
+
+# --- IDEs / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Specifics
 ProjectPlanChatGPT.txt
 vantage_project_plan.docx
 .env

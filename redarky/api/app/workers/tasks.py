@@ -8,7 +8,7 @@ from app.data.service import generate_hash, transform_to_model
 from app.utils.redis_client import is_duplicate
 
 
-@celery.task
+@celery.task(name="app.workers.tasks.process_batch")
 def process_batch(mission_id: str, file_path: str):
     print(f"Processing batch: {file_path}")
 

@@ -1,6 +1,8 @@
 import redis
 
-r = redis.Redis(host="redis", port=6379, db=0)
+# r = redis.Redis(host="redis", port=6379, db=0) # on docker
+r = redis.Redis(host="localhost", port=6379, db=0) # on local
+
 
 
 def is_duplicate(mission_id: str, hash_key: str):

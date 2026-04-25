@@ -2,33 +2,54 @@ package scraper
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+	"sync"
+
+	"redarky/internal/hn"
+	"redarky/internal/reddit"
 )
 
 type ScrapeRequest struct {
-	Query string `json:"query"`
-}
-
-type ScrapedItem struct {
-	Title string `json:"title"`
-	URL   string `json:"url"`
+	Query      string   `json:"query"`
+	Subreddits []string `json:"subreddits"`
 }
 
 func HandleScrape(w http.ResponseWriter, r *http.Request) {
 	var req ScrapeRequest
 	json.NewDecoder(r.Body).Decode(&req)
 
-	// Just print
-	log.Println("Scrape endpoint hit!")
+	var wg sync.WaitGroup
+	resultsChan := make(chan []ScrapedItem)
 
-	// TODO:
-	// Call Reddit + HN + RSS concurrently
-	// Merge results
+	// HN goroutine
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		data, _ := hn.FetchHN(req.Query)
+		resultsChan <- data
+	}()
 
-	results := []ScrapedItem{
-		{Title: "Example Post", URL: "https://example.com"},
+	// Reddit goroutines
+	for _, sub := range req.Subreddits {
+		wg.Add(1)
+		go func(s string) {
+			defer wg.Done()
+			data, _ := reddit.FetchReddit(s)
+			resultsChan <- data
+		}(sub)
 	}
 
-	json.NewEncoder(w).Encode(results)
+	// Close channel when done
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+
+	var allResults []ScrapedItem
+
+	for res := range resultsChan {
+		allResults = append(allResults, res...)
+	}
+
+	json.NewEncoder(w).Encode(allResults)
 }

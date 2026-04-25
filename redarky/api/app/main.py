@@ -6,7 +6,8 @@ from app.database import get_db, engine, Base
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.scraper.models import ScrapedResult
 from app.config import settings
-    
+from app.scraper.router import router as scraper_router
+
 
 ## Initialize Database 
 @asynccontextmanager
@@ -57,3 +58,4 @@ async def call_scraper(db: AsyncSession = Depends(get_db)):
 
 # Register routes
 app.include_router(mission_router, prefix="/missions", tags=["missions"])
+app.include_router(scraper_router, prefix="/scraper", tags=["scraper"])

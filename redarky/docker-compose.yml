@@ -1,0 +1,6 @@
+worker:
+  build: ./redarky/api
+  command: celery -A app.workers.celery_app.celery worker --loglevel=info
+  depends_on:
+    - redis
+    - db

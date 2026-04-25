@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"redarky/internal/models"
 	"time"
-
-	"redarky/internal/scraper"
 )
 
 type HNResponse struct {
@@ -20,7 +19,7 @@ type HNResponse struct {
 	} `json:"hits"`
 }
 
-func FetchHN(query string) ([]scraper.ScrapedItem, error) {
+func FetchHN(query string) ([]models.ScrapedItem, error) {
 	url := fmt.Sprintf("https://hn.algolia.com/api/v1/search?query=%s", query)
 
 	resp, err := http.Get(url)
@@ -32,10 +31,10 @@ func FetchHN(query string) ([]scraper.ScrapedItem, error) {
 	var data HNResponse
 	json.NewDecoder(resp.Body).Decode(&data)
 
-	var results []scraper.ScrapedItem
+	var results []models.ScrapedItem
 
 	for _, item := range data.Hits {
-		results = append(results, scraper.ScrapedItem{
+		results = append(results, models.ScrapedItem{
 			Source:     "hn",
 			ExternalID: item.ObjectID,
 			Title:      item.Title,

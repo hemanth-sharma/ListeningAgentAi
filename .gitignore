@@ -1,14 +1,24 @@
+# --- Project Specific Data (IMPORTANT) ---
+redarky_data/
+redarky/redarky_data/
+*.json
+
 # --- Python / FastAPI ---
 __pycache__/
+*/__pycache__/
 *.py[cod]
 *$py.class
+venv/
 .venv/
 venv/
 ENV/
 .env
+.env*
 .pytest_cache/
-.coverage
-htmlcov/
+
+# --- Alembic ---
+# We keep the .py files in versions, but ignore the cache
+redarky/api/alembic/__pycache__/
 
 # --- Go ---
 # Binaries for programs and plugins
@@ -17,17 +27,12 @@ htmlcov/
 *.dll
 *.so
 *.dylib
-# Test binary, built with `go test -c`
-*.test
-# Output of the go coverage tool, e.g. out.out
-*.out
-# Dependency directories (only if you don't use Go modules)
-# vendor/
+redarky/scraper/bin/
 
-# --- Database ---
-# Ignore the local SQLite database so you don't commit your test data
+# --- Database / Storage ---
 *.sqlite
 *.sqlite-journal
+*.log
 
 # --- IDEs / OS ---
 .vscode/
@@ -36,7 +41,7 @@ htmlcov/
 Thumbs.db
 *.log
 
-# Specifics
+# --- Miscellaneous ---
 ProjectPlanChatGPT.txt
 vantage_project_plan.docx
 .env

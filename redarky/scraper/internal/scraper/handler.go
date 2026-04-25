@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"redarky/internal/hn"
+	"redarky/internal/models"
 	"redarky/internal/reddit"
 )
 
@@ -19,7 +20,7 @@ func HandleScrape(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	var wg sync.WaitGroup
-	resultsChan := make(chan []ScrapedItem)
+	resultsChan := make(chan []models.ScrapedItem)
 
 	// HN goroutine
 	wg.Add(1)
@@ -45,7 +46,7 @@ func HandleScrape(w http.ResponseWriter, r *http.Request) {
 		close(resultsChan)
 	}()
 
-	var allResults []ScrapedItem
+	var allResults []models.ScrapedItem
 
 	for res := range resultsChan {
 		allResults = append(allResults, res...)

@@ -3,11 +3,11 @@ import json
 import os
 from datetime import datetime
 import uuid
-from config import settings
+from app.config import settings
 
 async def call_scraper(payload: dict):
     async with httpx.AsyncClient() as client:
-        res = await client.post(settings.SCRAPER_URL, json=payload)
+        res = await client.post(settings.GO_SCRAPER_URL, json=payload)
         res.raise_for_status()
         return res.json()
 

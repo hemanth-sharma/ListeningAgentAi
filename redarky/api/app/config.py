@@ -4,8 +4,9 @@ from typing import Optional
 
 class Settings(BaseSettings):
     DATABASE_URL: str 
-    SECRET_KEY: str = "dev"
-    SCRAPER_URL: str = "http://localhost:8081/scrape"
+    SECRET_KEY: str
+    ENVIRONMENT: str
+    GO_SCRAPER_URL: str
 
     model_config = SettingsConfigDict(
         env_file="../.env",

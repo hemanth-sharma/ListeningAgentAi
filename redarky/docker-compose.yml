@@ -1,6 +1,52 @@
-worker:
-  build: ./redarky/api
-  command: celery -A app.workers.celery_app.celery worker --loglevel=info
-  depends_on:
-    - redis
-    - db
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: redarky_db
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  go_scraper:
+    build: ./scraper
+    ports:
+      - "8081:8081"
+
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/redarky_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: ./api
+    command: celery -A app.workers.celery_app.celery worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/redarky_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - db
+
+  flower:
+    build: ./api
+    command: celery -A app.workers.celery_app.celery flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - worker

@@ -1,9 +1,7 @@
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from sqlalchemy.orm import declarative_base
-
-Base = declarative_base()
+from app.database import Base
 
 class Mission(Base):
     __tablename__ = "missions"

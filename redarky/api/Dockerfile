@@ -1,29 +1,16 @@
-version: "3.9"
+FROM python:3.11-slim
 
-services:
-  api:
-    build: ./api
-    ports:
-      - "8000:8000"
-    depends_on:
-      - db
-      - scraper
+WORKDIR /app
 
-  scraper:
-    build: ./scraper
-    ports:
-      - "8081:8081"
+# Install system dependencies for PostgreSQL
+RUN apt-get update && apt-get install -y \
+    libpq-dev gcc && \
+    rm -rf /var/lib/apt/lists/*
 
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: redarky
-    ports:
-      - "5432:5432"
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-  redis:
-    image: redis:7
-    ports:
-      - "6379:6379"
+COPY . .
+
+# Default command (can be overridden by compose)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

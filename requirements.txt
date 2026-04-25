@@ -6,3 +6,6 @@ sqlalchemy
 uvicorn
 aiosqlite
 httpx
+celery
+redis
+flower

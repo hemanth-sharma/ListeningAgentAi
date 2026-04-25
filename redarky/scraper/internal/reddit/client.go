@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"redarky/internal/models"
 	"time"
-
-	"redarky/internal/scraper"
 )
 
 type RedditResponse struct {
@@ -24,7 +23,7 @@ type RedditResponse struct {
 	} `json:"data"`
 }
 
-func FetchReddit(subreddit string) ([]scraper.ScrapedItem, error) {
+func FetchReddit(subreddit string) ([]models.ScrapedItem, error) {
 	url := fmt.Sprintf("https://www.reddit.com/r/%s/hot.json?limit=10", subreddit)
 
 	req, _ := http.NewRequest("GET", url, nil)
@@ -40,12 +39,12 @@ func FetchReddit(subreddit string) ([]scraper.ScrapedItem, error) {
 	var data RedditResponse
 	json.NewDecoder(resp.Body).Decode(&data)
 
-	var results []scraper.ScrapedItem
+	var results []models.ScrapedItem
 
 	for _, post := range data.Data.Children {
 		p := post.Data
 
-		results = append(results, scraper.ScrapedItem{
+		results = append(results, models.ScrapedItem{
 			Source:     "reddit",
 			ExternalID: p.ID,
 			Title:      p.Title,

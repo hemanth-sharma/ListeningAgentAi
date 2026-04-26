@@ -11,7 +11,7 @@ async def run_scraper(mission_id: str, payload: ScrapeRequest):
     # 1. Call Go scraper
     data = await call_scraper(payload.dict())
 
-    # 2. Save raw data
+    # 2. Save raw data (s3)
     file_path = save_raw_data(mission_id, data)
 
     # 3. Trigger Celery task

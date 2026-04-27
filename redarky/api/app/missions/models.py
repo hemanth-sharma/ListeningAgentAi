@@ -1,11 +1,18 @@
-from sqlalchemy import Column, String
-from sqlalchemy.dialects.postgresql import UUID
-import uuid
-from app.database import Base
 
 class Mission(Base):
     __tablename__ = "missions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String, nullable=False)
-    goal = Column(String, nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    goal: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    owner: Mapped["User"] = relationship(back_populates="missions")
+    data_items: Mapped[list["DataItem"]] = relationship(back_populates="mission")
+    market_gaps: Mapped[list["MarketGap"]] = relationship(back_populates="mission")
+    reports: Mapped[list["Report"]] = relationship(back_populates="mission")
+
+

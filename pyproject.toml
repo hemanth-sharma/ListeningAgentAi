@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "aiosqlite==0.22.1",
+    "alembic>=1.18.4",
     "amqp==5.3.1",
     "annotated-doc==0.0.4",
     "annotated-types==0.7.0",
@@ -31,6 +32,7 @@ dependencies = [
     "packaging==26.2",
     "prometheus-client==0.25.0",
     "prompt-toolkit==3.0.52",
+    "psycopg2>=2.9.12",
     "pydantic==2.13.3",
     "pydantic-core==2.46.3",
     "pydantic-settings>=2.14.0",

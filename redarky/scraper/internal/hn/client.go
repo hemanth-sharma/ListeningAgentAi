@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"redarky/internal/models"
 	"time"
 )
@@ -20,16 +21,22 @@ type HNResponse struct {
 }
 
 func FetchHN(query string) ([]models.ScrapedItem, error) {
-	url := fmt.Sprintf("https://hn.algolia.com/api/v1/search?query=%s", query)
+	url := fmt.Sprintf("https://hn.algolia.com/api/v1/search?query=%s", url.QueryEscape(query))
 
-	resp, err := http.Get(url)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("hn returned status %d", resp.StatusCode)
+	}
 
 	var data HNResponse
-	json.NewDecoder(resp.Body).Decode(&data)
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
 
 	var results []models.ScrapedItem
 

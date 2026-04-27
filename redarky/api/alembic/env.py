@@ -12,8 +12,18 @@ from app.config import settings
 from app.database import Base
 # IMPORTANT: Import all models here so Alembic can see the tables
 
-from app.missions.models import Mission
-from app.data.models import DataItem
+from app.models import (
+    Agent,
+    AgentRun,
+    DataItem,
+    Embedding,
+    EngagementAction,
+    MarketGap,
+    Mission,
+    RedditCredential,
+    Report,
+    User,
+)
 
 
 

@@ -1,7 +1,7 @@
 # --- Project Specific Data (IMPORTANT) ---
 redarky_data/
 redarky/redarky_data/
-redarkyredarky_data_s3/
+redarky/redarky_data_s3/
 *.json
 
 # --- Python / FastAPI ---

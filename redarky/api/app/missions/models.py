@@ -1,3 +1,9 @@
+import uuid
+from datetime import datetime
+from sqlalchemy import String, Text, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from app.database import Base
 
 class Mission(Base):
     __tablename__ = "missions"
@@ -14,5 +20,3 @@ class Mission(Base):
     data_items: Mapped[list["DataItem"]] = relationship(back_populates="mission")
     market_gaps: Mapped[list["MarketGap"]] = relationship(back_populates="mission")
     reports: Mapped[list["Report"]] = relationship(back_populates="mission")
-
-

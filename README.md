@@ -9,6 +9,8 @@ cd redarky/api
 Celery: celery -A app.workers.celery_app.celery worker --loglevel=info
 Flower: celery -A app.workers.celery_app.celery flower --port=5555
 Fastapi: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+Go: go mod tidy
+Go: go run cmd/main.go
 
 docker run -d -p 6379:6379 redis
 

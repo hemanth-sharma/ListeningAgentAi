@@ -40,10 +40,26 @@ async def _record_agent_run(session, mission_id: str, agent_id, status: str, out
     session.add(run)
 
 
-@celery.task(name="app.workers.tasks.process_batch")
-def process_batch(mission_id: str, file_path: str):
-    asyncio.run(_process_batch_async(mission_id, file_path))
+# @celery.task(name="app.workers.tasks.process_batch")
+# def process_batch(mission_id: str, file_path: str):
+#     asyncio.run(_process_batch_async(mission_id, file_path))
 
+import asyncio
+
+@celery.task
+def process_batch(mission_id, file_path):
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        # We are in Eager mode (FastAPI's loop is active)
+        # We must return a future/coroutine or use ensure_future
+        return asyncio.ensure_future(_process_batch_async(mission_id, file_path))
+    else:
+        # We are in a normal Celery worker process (no loop exists)
+        return asyncio.run(_process_batch_async(mission_id, file_path))
 
 async def _process_batch_async(mission_id: str, file_path: str) -> None:
     print(f"Processing batch: {file_path}")
@@ -56,13 +72,17 @@ async def _process_batch_async(mission_id: str, file_path: str) -> None:
     async with SessionLocal() as db:
         for item in raw_data:
             try:
+                print("RAW DATA ITEM: ", item)
                 validated = RawItemSchema.model_validate(item)
+                print("VALIDATED RAW ITEM: ", validated)
                 hash_key = generate_hash(validated)
                 if is_duplicate(mission_id, hash_key):
                     skipped += 1
+                    print("DUPLICATE REDIS")
                     continue
 
                 db_item = transform_to_model(validated, mission_id, hash_key)
+                print("TRANSFORMED TO MODEL: ", db_item)
                 stmt = (
                     insert(DataItem)
                     .values(
@@ -86,13 +106,16 @@ async def _process_batch_async(mission_id: str, file_path: str) -> None:
                 )
                 result = await db.execute(stmt)
                 inserted_id = result.scalar_one_or_none()
+                print("INSERTED: ", inserted_id)
                 if inserted_id:
                     inserted_ids.append(str(inserted_id))
                     processed_payload.append(validated.model_dump(mode="json"))
                 else:
                     skipped += 1
+                    print("SKIPPED LAST")
             except Exception as exc:
                 dead_letter_payload.append({"item": item, "error": str(exc)})
+                print("EXCEPTION: ", exc)
 
         await db.commit()
 
@@ -141,7 +164,9 @@ async def _process_batch_async(mission_id: str, file_path: str) -> None:
 
     if processed_payload:
         storage.write_json("processed", mission_id, processed_payload)
+        print("PROCESSED: ")
     if dead_letter_payload:
         storage.write_json("dead-letter", mission_id, dead_letter_payload)
+        print("DEAD LETTER: ")
 
     print(f"Inserted: {len(inserted_ids)}, Skipped: {skipped}, Redis: {settings.REDIS_URL}")

@@ -9,9 +9,12 @@ celery = Celery(
     include=["app.workers.tasks"],
 )
 
-celery.conf.task_routes = {
-    "app.workers.tasks.*": {"queue": "default"},
-}
+celery.conf.task_always_eager = True
+celery.conf.task_eager_propagates = True
+
+# celery.conf.task_routes = {
+#     "app.workers.tasks.*": {"queue": "default"},
+# }
 
 # Optional: Ensure it works well with Windows
 celery.conf.update(

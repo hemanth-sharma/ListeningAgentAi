@@ -74,7 +74,7 @@ async def _process_batch_async(mission_id: str, file_path: str) -> None:
             try:
                 print("RAW DATA ITEM: ", item)
                 validated = RawItemSchema.model_validate(item)
-                print("VALIDATED RAW ITEM: ", validated)
+                # print("VALIDATED RAW ITEM: ", validated)
                 hash_key = generate_hash(validated)
                 if is_duplicate(mission_id, hash_key):
                     skipped += 1

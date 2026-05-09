@@ -21,6 +21,7 @@ docker run -d -p 6379:6379 redis
 
 ## Phase 2: Backend CRUD skeleton (FastAPI)
 - Done
+- Add Airflow 
 
 ## Phase 2: Data Pipeline
 - Basic Data pipeline is ready

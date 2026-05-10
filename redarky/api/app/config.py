@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30
     LOCAL_S3_BASE_PATH: str = "../redarky_data_s3"
 
+    # AI services (Stage 3)
+    OPENAI_API_KEY: str = ""
+
     model_config = SettingsConfigDict(
         env_file="../.env",
         env_file_encoding="utf-8",

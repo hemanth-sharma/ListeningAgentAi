@@ -1,0 +1,10 @@
+apache-airflow>=3.1.0
+apache-airflow-providers-postgres
+apache-airflow-providers-redis
+apache-airflow-providers-http
+pandas
+pyarrow
+boto3
+pydantic
+sqlalchemy<2.0.0
+psycopg2-binary

@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
@@ -50,3 +50,58 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
     depends_on:
       - worker
+
+  airflow-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow_password
+      POSTGRES_DB: airflow_db
+    ports:
+      - "5433:5432" # Changed to 5433 so it doesn't conflict with your local Postgres on 5432
+
+  airflow-init:
+    image: apache/airflow:2.10.5-python3.11 # Upgraded for better stability
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@airflow-db:5432/airflow_db
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    volumes:
+      - ./airflow:/opt/airflow
+    depends_on:
+      - airflow-db
+    command: >
+      bash -c "airflow db init && 
+      airflow users create --username admin --firstname Hemant --lastname Sharma --role Admin --email admin@redarky.com --password admin"
+
+  airflow-webserver:
+    image: apache/airflow:2.10.5-python3.11
+    restart: always
+    depends_on:
+      airflow-db:
+        condition: service_started
+      airflow-init:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./airflow:/opt/airflow
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@airflow-db:5432/airflow_db
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    command: webserver
+
+  airflow-scheduler:
+    image: apache/airflow:2.10.5-python3.11
+    restart: always
+    depends_on:
+      airflow-db:
+        condition: service_started
+      airflow-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./airflow:/opt/airflow
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@airflow-db:5432/airflow_db
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    command: scheduler

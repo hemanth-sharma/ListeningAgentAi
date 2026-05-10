@@ -12,6 +12,7 @@ __pycache__/
 venv/
 .venv/
 venv/
+airflow_venv/
 ENV/
 .env
 .env*

@@ -41,7 +41,7 @@ def route_from_supervisor(state: AgentState) -> Literal["researcher", "__end__"]
     """
     destination = state.next_node or "__end__"
     log.debug("route_from_supervisor", run_id=state.run_id, destination=destination)
-    return destination  # type: ignore[return-value]
+    return destination  
 
 
 def route_from_researcher(state: AgentState) -> Literal["supervisor", "__end__"]:

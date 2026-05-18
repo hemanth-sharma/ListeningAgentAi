@@ -20,6 +20,14 @@ Go: go run cmd/main.go
 
 docker run -d -p 6379:6379 redis
 
+Airflow working testing commands: on linux
+`killall airflow uvicorn 2>/dev/null || pkill -f airflow`
+`export AIRFLOW_HOME="/mnt/d/SaaS/ListeningAIAgent/ListeningAgentAi/redarky/airflow"`
+`export AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="sqlite://///mnt/d/SaaS/ListeningAIAgent/ListeningAgentAi/redarky/airflow/airflow.db"`
+`export AIRFLOW__API_AUTH__JWT_SECRET="super-secret-shared-key-for-airflow3-local-dev-12345"`
+`airflow db migrate`
+`airflow standalone`
+
 ## Phase 1: Go Scrappers to extract data
 
 - Go routine scrapers are done

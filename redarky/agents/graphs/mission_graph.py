@@ -23,9 +23,10 @@ from typing import Literal
 import structlog
 from langgraph.graph import END, START, StateGraph
 
-from agents.nodes.researcher_node import researcher_node
-from agents.nodes.supervisor_node import supervisor_node
-from agents.state.agent_state import AgentState
+
+from redarky.agents.nodes.researcher_node import researcher_node
+from redarky.agents.nodes.supervisor_node import supervisor_node
+from redarky.agents.state.agent_state import AgentState
 
 log = structlog.get_logger("agents.mission_graph")
 

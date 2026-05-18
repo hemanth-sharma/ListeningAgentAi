@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import structlog
 
-from agents.state.agent_state import AgentState, ResearchOutput
+from redarky.agents.state.agent_state import AgentState, ResearchOutput
 
 log = structlog.get_logger("agents.researcher")
 

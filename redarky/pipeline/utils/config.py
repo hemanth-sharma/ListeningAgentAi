@@ -7,7 +7,7 @@ API_BASE_URL = Variable.get(
 
 S3_BASE_PATH = Variable.get(
     "S3_BASE_PATH",
-    default_var="/mnt/d/redarky_data_s3"
+    default_var="/mnt/d/SaaS/ListeningAIAgent/ListeningAgentAi/redarky/redarky_data_s3"
 )
 
 PG_CONN_STR = Variable.get(

@@ -1,6 +1,34 @@
+"""
+redarky_pipeline.py  —  MYM-28 through MYM-41
+=================================================
+Main Airflow DAG for the RedArky data pipeline.
+
+Task flow (Stage 1 + Stage 2):
+  extract_sources
+      → validate_schema
+          → clean_deduplicate
+              → load_postgresql
+                  → convert_to_parquet
+                      → generate_embeddings   (Stage 3)
+                          → log_batch_metadata
+
+Retry policy: 3 retries, 5-minute delay (scraper tasks).
+Structured JSON logging via structlog throughout.
+"""
+
+import os
+import sys
+from datetime import datetime
+
+PIPELINE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 1. Inject it into Python's search paths so 'tasks' and 'utils' become direct modules
+if PIPELINE_ROOT not in sys.path:
+    sys.path.insert(0, PIPELINE_ROOT)
+
 from datetime import timedelta, datetime
 from airflow import DAG
-from pipeline.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator
 # from pipeline.utils.dates import days_ago
 
 from pipeline.tasks.extract import extract_sources

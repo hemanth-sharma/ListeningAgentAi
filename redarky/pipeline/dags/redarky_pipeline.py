@@ -1,25 +1,26 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
+from pipeline.operators.python import PythonOperator
+# from pipeline.utils.dates import days_ago
 
-from tasks.extract import extract_sources
-from tasks.validate import validate_schema
-from tasks.deduplicate import clean_deduplicate
-from tasks.parquet import convert_to_parquet
+from pipeline.tasks.extract import extract_sources
+from pipeline.tasks.validate import validate_schema
+from pipeline.tasks.deduplicate import clean_deduplicate
+from pipeline.tasks.parquet import convert_to_parquet
 
 default_args = {
     "owner": "redarky",
     "depends_on_past": False,
     "retries": 3,
     "retry_delay": timedelta(minutes=5),
+    # 'start_date': datetime(2026, 1, 1),
 }
 
 with DAG(
     dag_id="redarky_pipeline",
     default_args=default_args,
     description="Redarky pipeline",
-    start_date=days_ago(1),
+    start_date=datetime(2026, 1, 1),
     catchup=False,
     schedule="@daily",
     max_active_runs=1,

@@ -1,6 +1,6 @@
 import json
-from airflow.pipeline_utils.logger import log
-from airflow.pipeline_utils.database import get_postgres_connection
+from pipeline.utils.logger import log
+from pipeline.utils.database import get_postgres_connection
 from pathlib import Path
 from typing import Any
 from psycopg2.extras import execute_values

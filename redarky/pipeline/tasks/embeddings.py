@@ -1,7 +1,7 @@
 
 import json
-from airflow.pipeline_utils.logger import log
-from airflow.pipeline_utils.config import (OPENAI_API_KEY, PG_CONN_STR)
+from pipeline.utils.logger import log
+from pipeline.utils.config import (OPENAI_API_KEY, PG_CONN_STR)
 from typing import Any
 import uuid
 from datetime import UTC, datetime, timedelta

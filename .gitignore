@@ -76,3 +76,27 @@ redarky/airflow/*.json
 # Ignore local virtual environments if located inside the airflow directory
 redarky/airflow/.venv/
 redarky/airflow/venv/
+
+
+
+
+# Ignore SQLite database files generated at runtime
+redarky/pipeline/*.db
+redarky/pipeline/*.db-shm
+redarky/pipeline/*.db-wal
+
+# Ignore all runtime logs and execution telemetry
+redarky/pipeline/logs/
+
+# Ignore Airflow PID files and webserver/api state trackers
+redarky/pipeline/*.pid
+redarky/pipeline/*.cfg
+redarky/pipeline/webserver_config.py
+
+# Ignore automatically generated credential files or secrets
+redarky/pipeline/*.json.generated
+redarky/pipeline/*.json
+
+# Ignore local virtual environments if located inside the pipeline directory
+redarky/pipeline/.venv/
+redarky/pipeline/venv/

@@ -1,8 +1,8 @@
 import uuid
 import requests
 
-from airflow.pipeline_utils.logger import log
-from airflow.pipeline_utils.config import (
+from pipeline.utils.logger import log
+from pipeline.utils.config import (
     API_BASE_URL,
     DEFAULT_MISSION_ID,
     DEFAULT_QUERY,

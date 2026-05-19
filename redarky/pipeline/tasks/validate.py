@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from airflow.pipeline_utils.logger import log
-from airflow.pipeline_utils.files import load_json, save_json
-from airflow.pipeline_utils.config import S3_BASE_PATH
+from pipeline.utils.logger import log
+from pipeline.utils.files import load_json, save_json
+from pipeline.utils.config import S3_BASE_PATH
 import json
 
 

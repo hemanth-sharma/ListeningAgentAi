@@ -1,8 +1,8 @@
 import hashlib
 from pathlib import Path
 
-from airflow.pipeline_utils.files import load_json, save_json
-from airflow.pipeline_utils.logger import log
+from pipeline.utils.files import load_json, save_json
+from pipeline.utils.logger import log
 
 
 def clean_deduplicate(**context):

@@ -30,17 +30,20 @@ from datetime import timedelta, datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 # from pipeline.utils.dates import days_ago
+from pipeline.utils.retry import DEFAULT_RETRY_POLICY
 
 from pipeline.tasks.extract import extract_sources
 from pipeline.tasks.validate import validate_schema
 from pipeline.tasks.deduplicate import clean_deduplicate
 from pipeline.tasks.parquet import convert_to_parquet
+from pipeline.tasks.load_postgres import load_postgresql
+from pipeline.tasks.embeddings import generate_embeddings
+
 
 default_args = {
     "owner": "redarky",
     "depends_on_past": False,
-    "retries": 3,
-    "retry_delay": timedelta(minutes=5),
+    **DEFAULT_RETRY_POLICY,
     # 'start_date': datetime(2026, 1, 1),
 }
 
@@ -70,14 +73,33 @@ with DAG(
         python_callable=clean_deduplicate,
     )
 
+    load_postgres_task = PythonOperator(
+        task_id="load_postgresql",
+        python_callable=load_postgresql,
+    )
+
     parquet_task = PythonOperator(
         task_id="convert_to_parquet",
         python_callable=convert_to_parquet,
+    )
+
+    embeddings_task = PythonOperator(
+        task_id="generate_embeddings",
+        python_callable=generate_embeddings,
     )
 
     (
         extract_task
         >> validate_task
         >> deduplicate_task
-        >> parquet_task
+        >> [load_postgres_task, parquet_task]
     )
+    
+    load_postgres_task >> embeddings_task
+
+    # (
+    #     extract_task
+    #     >> validate_task
+    #     >> deduplicate_task
+    #     >> parquet_task
+    # )

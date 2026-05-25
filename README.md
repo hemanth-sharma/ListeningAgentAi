@@ -50,6 +50,14 @@ export AIRFLOW__API_AUTH__JWT_SECRET="super-secret-shared-key-for-airflow3-local
 
 ## Phase 3: Create AI Agent
 
-- Pending
+- DONE
+- Testing and Integrating with frontend pending
 
 ## Phase 4: Clean and Analyze data via AI agents
+- Full flow testing pending
+
+## Phase 5: Frontend Next JS
+- Design frontend - DONE
+- Build frontend application
+
+## Phase 6: Improve and test security

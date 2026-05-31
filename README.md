@@ -58,6 +58,6 @@ export AIRFLOW__API_AUTH__JWT_SECRET="super-secret-shared-key-for-airflow3-local
 
 ## Phase 5: Frontend Next JS
 - Design frontend - DONE
-- Build frontend application
+- Build frontend application - pendings
 
 ## Phase 6: Improve and test security

@@ -26,18 +26,26 @@ type RedditResponse struct {
 func FetchReddit(subreddit string) ([]models.ScrapedItem, error) {
 	url := fmt.Sprintf("https://www.reddit.com/r/%s/hot.json?limit=10", subreddit)
 
-	req, _ := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("User-Agent", "vantage-bot")
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("reddit returned status %d", resp.StatusCode)
+	}
 
 	var data RedditResponse
-	json.NewDecoder(resp.Body).Decode(&data)
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
 
 	var results []models.ScrapedItem
 

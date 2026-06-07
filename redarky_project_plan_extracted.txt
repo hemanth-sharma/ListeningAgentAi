@@ -1,0 +1,734 @@
+
+
+
+REDARKY
+Multi-Agent Market Intelligence Platform
+
+Full Project Specification & Build Plan
+
+Author
+Solo Developer (Python Backend + Go + AI + Data Engineering)
+Target roles
+Python Developer · Data Engineer · Go Developer · Software Developer
+Build time
+14 weeks (part-time) or 8 weeks (full-time)
+Monthly cost
+~$3–5/mo personal use (free tier services + minimal OpenAI usage)
+Status
+Pre-build — specification document
+Version
+1.0  |  April 2026
+
+
+
+
+
+1. Executive Summary
+RedArky RedArky is an async, multi-agent platform that monitors Reddit, Hacker News, GitHub Trending, and RSS feeds on topics you define. It runs a production-grade data pipeline to collect, clean, classify, and embed raw social data into a queryable data lake and vector store. An AI agent system then analyses the stored data to find recurring pain points, identifies market gaps (places where problems exist but good solutions don't), generates mini technical specifications for potential SaaS products, and optionally engages with Reddit communities to validate ideas — all before delivering a structured morning digest.
+
+This is simultaneously a resume-grade engineering project and a genuinely useful personal tool. It demonstrates five distinct engineering disciplines in one cohesive system rather than five disconnected toy projects.
+
+Why this project wins interviews
+Python Backend
+FastAPI service with JWT auth, Celery async tasks, SQLAlchemy ORM, Pydantic models — production patterns throughout
+Data Engineering
+Apache Airflow DAG, S3 3-layer data lake (raw/processed/dead-letter), Parquet partitioning, pgvector embedding pipeline
+AI / LLM Engineering
+LangGraph multi-agent state graph, RAG retrieval with pgvector, structured LLM outputs, agent orchestration patterns
+Distributed Systems
+Redis pub/sub + Celery workers, Docker Compose, Kubernetes manifests, health checks, dead-letter queues, retry logic
+Go Lang
+Standalone concurrent scraper microservice using goroutines, circuit breaker, rate limiting — real Go, not a wrapper
+
+
+2. System Overview
+2.1  Project name & tagline
+Name
+RedArky
+Tagline
+Deploy agents to monitor the internet on missions you care about
+Core loop
+Define mission → collect data → pipeline → agents analyse → digest delivered every morning
+
+2.2  High-level data flow
+The system moves data through five conceptual stages:
+User defines a Mission — a goal, a set of subreddits/sources, and a schedule
+Go scraper collects raw posts, comments, stories from sources in parallel
+Data pipeline (Airflow) validates, deduplicates, classifies, and embeds the data into PostgreSQL + S3
+AI Agent pipeline (LangGraph) analyses the stored data per mission to find gaps and write specs
+Report Agent compiles a morning digest and writes it to the dashboard
+
+2.3  Mission types
+Every feature in RedArky is scoped to a Mission. Users can create multiple parallel missions:
+SaaS idea discovery
+Find recurring complaints and unmet needs in a niche. Output: ranked gap list + mini specs
+Opinion analysis
+Aggregate community sentiment on a product or company. Output: sentiment report with evidence
+Competitor tracking
+Monitor what users hate about existing tools. Output: complaint categories + frequency scores
+Custom mission
+User defines goal, subreddits, agent prompt, output schema — fully extensible
+
+2.4  Free data sources
+Reddit public API (PRAW)
+Free authenticated read access. Rate limited but manageable at personal scale
+HN Algolia API
+Completely free full-text search with no meaningful rate limits for personal use
+GitHub Trending (RSS)
+Free RSS feed — great signal for what developers are actively building
+Product Hunt (GraphQL)
+Free developer API tier — shows what is launching in a given market weekly
+RSS feeds (Dev.to etc.)
+Any blog or forum can be added as an RSS source — fully extensible
+Twitter / X
+SKIP — $100+/month API cost. Reddit has better developer signal anyway
+
+
+3. Services Architecture
+RedArky is composed of five independently deployable services. Each lives in its own directory in the monorepo with its own Dockerfile, requirements/go.mod, and tests.
+
+RedArky-scraper  |  Go 1.22+
+Description
+Standalone Go microservice. Uses goroutines for concurrent HTTP scraping across all sources. Exposes a single internal REST endpoint POST /scrape that accepts a mission config and returns a batch of structured JSON records. Implements a token-bucket rate limiter per source domain, circuit breaker pattern for flaky external APIs, and exponential backoff on retries.
+Tech stack
+Go 1.22 · net/http · goroutines · sync.WaitGroup · golang.org/x/time/rate · PRAW adapter · Algolia API · RSS parser
+
+RedArky-api  |  Python 3.12 / FastAPI
+Description
+Core application server. Handles user authentication (JWT + refresh tokens), full CRUD for Missions and Agents, triggers Airflow DAG runs via the Airflow REST API, serves a WebSocket endpoint for real-time agent log streaming to the frontend, and exposes REST endpoints for all dashboard data. Also runs Celery Beat for mission schedule management.
+Tech stack
+FastAPI · Pydantic v2 · SQLAlchemy 2.0 · Alembic · Celery + Beat · JWT auth · WebSocket · httpx · python-praw
+
+RedArky-pipeline  |  Python 3.12 / Apache Airflow 2.9
+Description
+Orchestrates the full ETL/ELT DAG per mission. Raw JSON from the scraper lands in S3 first (immutable source of truth). Airflow then runs 8 sequential tasks: validate → clean → deduplicate → classify → upload Parquet → generate embeddings → load PostgreSQL/pgvector → trigger agents. Runs on a per-mission schedule (hourly, daily, etc.). Every task is idempotent and can be safely retried.
+Tech stack
+Apache Airflow 2.9 · boto3 / S3 · pyarrow / Parquet · Pydantic · OpenAI embeddings · pgvector · Redis dedup set · Celery
+
+RedArky-agents  |  Python 3.12 / LangGraph
+Description
+Multi-agent pipeline running as Celery workers. A LangGraph state graph defines the agent execution flow: Supervisor decides the plan, Researcher retrieves relevant data via pgvector similarity search, Gap Finder cross-references with web search to identify unmet needs, Spec Writer generates structured mini-specs, Engagement Agent optionally drafts Reddit interactions, and Report Agent produces the morning digest. Custom user-defined agents slot in after Researcher.
+Tech stack
+LangGraph · LangChain · Celery workers · OpenAI GPT-4o · pgvector RAG · PRAW (engagement) · Pydantic structured output · Redis pub/sub
+
+RedArky-web  |  Next.js 14 / TypeScript
+Description
+Dashboard frontend. Mission builder with subreddit selector and agent configurator. Real-time agent log stream via WebSocket. Daily digest reader with gap cards and mini-spec viewer. Engagement approval queue (user must approve every Reddit action before it posts). Custom agent builder UI. Minimal and functional — this is not the star of the portfolio, the backend is.
+Tech stack
+Next.js 14 · TypeScript · React Query · Tailwind CSS · WebSocket client · Recharts · Zustand
+
+
+4. Database Schema (PostgreSQL + pgvector)
+Single PostgreSQL instance (Supabase free tier for development, RDS for production). The pgvector extension is enabled on the embeddings table with an IVFFlat index for approximate nearest-neighbour search.
+
+4.1  Core tables
+users
+id UUID PK, email, password_hash, created_at, updated_at
+reddit_credentials
+id UUID PK, user_id FK, reddit_username, encrypted_refresh_token, scopes[], created_at
+missions
+id UUID PK, user_id FK, name, goal_type ENUM, subreddits[], keywords[], schedule CRON, reddit_creds_id FK, status ENUM, config JSONB
+data_items
+id UUID PK, mission_id FK, source ENUM, external_id VARCHAR, title TEXT, content TEXT, author, score INT, url, classification ENUM, sentiment_score FLOAT, scraped_at, created_at
+embeddings
+id UUID PK, data_item_id FK, vector VECTOR(1536), model VARCHAR — indexed: IVFFlat(lists=100) with cosine ops
+market_gaps
+id UUID PK, mission_id FK, title TEXT, problem_statement TEXT, evidence_ids UUID[], existing_solutions JSONB, confidence_score FLOAT, spec_json JSONB, status ENUM
+agents
+id UUID PK, mission_id FK, type ENUM, name, prompt_template TEXT, data_query_sql TEXT, output_schema JSONB, schedule, is_active, is_custom BOOL
+agent_runs
+id UUID PK, agent_id FK, batch_id, status ENUM, input_snapshot JSONB, output_json JSONB, error TEXT, started_at, completed_at, tokens_used INT
+reports
+id UUID PK, mission_id FK, content JSONB, markdown_body TEXT, gaps_found INT, specs_written INT, generated_at
+engagement_actions
+id UUID PK, mission_id FK, platform ENUM, action_type ENUM, target_url, content TEXT, status ENUM, approved_at, posted_at, post_url
+
+4.2  Key indexes
+data_items(mission_id, scraped_at DESC) — primary timeline query
+data_items(mission_id, classification) — agent retrieval filter
+embeddings using IVFFlat(vector_cosine_ops) — pgvector ANN search
+agent_runs(agent_id, started_at DESC) — run history queries
+engagement_actions(mission_id, status) — approval queue
+
+
+5. Data Pipeline (Apache Airflow)
+The pipeline follows an ELT pattern: raw data lands in S3 first as an immutable source of truth, transformations happen downstream. This means any transformation bug can be fixed and the pipeline replayed without re-scraping.
+
+5.1  S3 data lake layout
+s3://RedArky-lake/
+  raw/                                 ← immutable raw API responses
+    reddit/{mission_id}/{YYYY-MM-DD}/{batch_id}.json
+    hn/{mission_id}/{YYYY-MM-DD}/{batch_id}.json
+  processed/                           ← cleaned, classified Parquet
+    {mission_id}/{YYYY-MM-DD}/{batch_id}.parquet
+  dead-letter/                         ← failed validation records
+    {mission_id}/{YYYY-MM-DD}/invalid_{batch_id}.json
+  reports/                             ← daily digest output
+    {mission_id}/{YYYY-MM-DD}/digest.json
+
+5.2  Airflow DAG — mission_intelligence_dag
+One DAG instance per mission, parameterised by mission_id. Triggered on schedule or manually. All tasks are idempotent.
+
+#
+Task name
+Operator
+What it does
+Output
+1
+extract_sources
+PythonOperator
+Calls Go scraper REST endpoint. Fetches Reddit posts/comments + HN stories + RSS items for the mission's keywords and subreddits.
+S3 raw/{mission}/{date}/*.json
+2
+validate_schema
+PythonOperator
+Runs every record through a Pydantic model. Valid → proceed. Invalid → S3 dead-letter prefix with failure reason attached. Never silently dropped.
+Validated batch in memory
+3
+clean_deduplicate
+PythonOperator
+SHA-256 hash of (url + title) checked against a Redis set per mission. Drops duplicates (O(1)), removes deleted posts, sub-threshold content, spam.
+Clean unique record set
+4
+classify_content
+PythonOperator
+Lightweight LLM batch call (GPT-4o-mini) classifies each item: complaint / question / feature_request / praise / general. Adds sentiment score (−1 to +1).
+Tagged + scored records
+5
+upload_processed
+PythonOperator
+Converts to Parquet. Partitions by mission_id + date. Uploads to S3 processed layer. This is the queryable analytical layer (DuckDB, Athena compatible).
+S3 processed/*.parquet
+6
+generate_embeddings
+PythonOperator
+Chunks content. Batch embeds using text-embedding-3-small (1536 dims). Respects OpenAI rate limits with exponential backoff. Collects vector list.
+Embedding vectors in memory
+7
+load_postgresql
+PythonOperator
+Bulk inserts data_items rows. Batch upserts embeddings into pgvector. Runs VACUUM ANALYZE. Uses ON CONFLICT DO NOTHING for full idempotency.
+data_items + embeddings in DB
+8
+trigger_agents
+PythonOperator
+Publishes {mission_id, batch_id, item_count} to Redis pub/sub channel. Celery workers in RedArky-agents subscribe and initiate the agent pipeline.
+Agent run queued
+
+5.3  Data quality strategy
+Deduplication
+SHA-256 hash of (url + title) stored in a Redis SET per mission. O(1) lookup before any write. Survives restarts and replays.
+Schema validation
+Pydantic model gate on every record. Failures go to dead-letter S3 prefix with structured failure reason — never silently lost.
+Quality filter
+Drops posts below configurable score threshold, deleted/removed content, posts under 50 characters, obvious spam patterns.
+Idempotency
+Every DAG task can be retried safely. S3 writes use deterministic batch_id keys. Postgres inserts use ON CONFLICT DO NOTHING.
+Observability
+Airflow task logs to CloudWatch. Failed tasks alert via email/Slack. Dead-letter queue monitored by a daily Airflow task.
+
+
+6. AI Agent System (LangGraph)
+All agents are Celery workers executing a LangGraph state graph. The Supervisor node reads the mission config and constructs the execution plan. Each subsequent agent reads from and writes to a shared Pydantic state object — typed, validated, and persisted to the agent_runs table after every node completes.
+
+Supervisor  —  Orchestrator
+What it does
+Reads the mission config, the current batch signal (mission_id, batch_id, item_count), and any previously completed agent_runs. Constructs the LangGraph execution plan for this mission type — which agents run, in what order, with which conditional edges. Handles retry edges for each node.
+Input / Output
+IN:  Mission config + Redis batch signal + previous run history
+OUT: LangGraph execution plan — ordered node list + conditional edges
+
+Researcher  —  Data analysis
+What it does
+Embeds the mission goal string and runs a pgvector cosine similarity search against the latest batch of embeddings. Retrieves the top-K most relevant chunks. Groups findings by topic cluster using a lightweight clustering prompt. Extracts recurring themes, pain points, and sentiment patterns with frequency counts.
+Input / Output
+IN:  Mission goal embedding + pgvector index + latest batch data_items
+OUT: themes[], pain_points[] with frequency + severity, sentiment_map
+
+Gap Finder  —  Market analysis
+What it does
+Takes the pain_points list from the Researcher. For each pain point, uses the LangChain web search tool to find existing solutions. Compares: does an adequate solution exist? Ranks gaps by a composite score of (frequency × severity × absence_of_solution). Returns a list of validated market gaps with supporting evidence IDs.
+Input / Output
+IN:  Research output (pain_points, frequency_map) + web search tool
+OUT: market_gaps[] ranked by composite score, each with evidence_ids[]
+
+Spec Writer  —  Synthesis
+What it does
+For each market gap above the confidence threshold, generates a structured mini technical specification. Output is a Pydantic-validated JSON object stored in the market_gaps table. Includes: problem statement, proposed solution, rough architecture sketch (2-3 sentences), target user persona, monetisation hypothesis, and 3 validation questions for the Engagement Agent.
+Input / Output
+IN:  Market gap + supporting evidence text chunks from pgvector
+OUT: spec_json per gap: {problem, solution, architecture, target_user, monetisation, validation_questions[]}
+
+Engagement  —  Optional — user-activated
+What it does
+Uses PRAW with the user's Reddit OAuth credentials to draft a comment or validation question targeting a relevant thread identified by the Gap Finder. Writes the draft to the engagement_actions table with status pending_approval. NEVER posts without explicit user approval from the dashboard. Rate limited to 5 actions per day per mission.
+Input / Output
+IN:  Spec validation_questions + target thread URLs identified by Gap Finder
+OUT: engagement_actions rows with status=pending_approval (human gate required before posting)
+
+Report  —  Daily digest — 7am
+What it does
+Runs every morning at 07:00. Reads all agent_runs outputs from the past 24 hours for each active mission. Compiles a structured daily digest: new gaps found, mini-specs written, engagement results (impressions, replies), trend summary comparing this week vs last week. Writes Markdown + structured JSON to the reports table.
+Input / Output
+IN:  All Postgres agent_run outputs from past 24h for the mission
+OUT: reports row: {content JSONB, markdown_body TEXT, gaps_found, specs_written, generated_at}
+
+Custom (user-defined)  —  Extensible slot
+What it does
+User defines an agent via 4 fields in the dashboard: (1) data query — a pgvector similarity search query or raw SQL filter defining what data this agent reads; (2) prompt template with variables {data}, {mission_goal}, {date_range}; (3) output schema — a JSON Schema that the LLM is forced to match; (4) schedule — on pipeline completion, daily, or on demand. Runs after Researcher, before Report.
+Input / Output
+IN:  User-defined pgvector/SQL query against mission data
+OUT: User-defined Pydantic output — stored in agent_runs.output_json
+
+
+7. Complete Technology Stack
+
+7.1  Languages
+Python 3.12
+FastAPI backend, Airflow pipeline, Celery workers, LangGraph agents
+Go 1.22
+RedArky-scraper — concurrent HTTP scraping service
+TypeScript
+Next.js dashboard
+SQL
+PostgreSQL queries, Alembic migrations, pgvector operations
+HCL (Terraform)
+Infrastructure as Code for AWS provisioning (optional phase 5+)
+
+7.2  Backend frameworks & libraries
+FastAPI
+Async web framework. Routes, dependency injection, OpenAPI docs auto-generated
+Pydantic v2
+All request/response models + LLM output validation + data pipeline schemas
+SQLAlchemy 2.0
+Async ORM. Mapped classes, relationship loading, query building
+Alembic
+Database migrations — version controlled, autogenerate from models
+Celery 5 + Beat
+Async task queue (workers) + periodic task scheduler (Beat)
+Apache Airflow 2.9
+Pipeline DAG orchestration — scheduling, retries, logging, monitoring UI
+LangGraph
+Multi-agent state graph framework — typed nodes, conditional edges, persistence
+LangChain
+LLM wrapper, web search tool, prompt templates, output parsers
+PRAW
+Reddit API wrapper — reading posts/comments + authenticated posting
+boto3
+AWS S3 client — data lake reads/writes, presigned URLs
+pyarrow
+Parquet read/write for the processed S3 layer
+httpx
+Async HTTP client for internal Go scraper calls
+python-jose
+JWT encode/decode for auth
+passlib
+Password hashing (bcrypt)
+cryptography
+AES-256 encryption of Reddit OAuth refresh tokens at rest
+pytest + pytest-asyncio
+Test suite for all Python services
+
+7.3  Go packages
+net/http
+Standard HTTP server and client
+encoding/json
+JSON serialisation/deserialisation
+sync + sync/atomic
+Goroutine coordination and safe concurrency
+golang.org/x/time/rate
+Token bucket rate limiter per source domain
+github.com/sony/gobreaker
+Circuit breaker pattern for flaky external APIs
+github.com/mmcdole/gofeed
+RSS/Atom feed parser
+github.com/vartanbeno/go-reddit
+Reddit API client
+github.com/stretchr/testify
+Go test assertions
+
+7.4  Data & AI
+PostgreSQL 16 + pgvector
+Primary database + vector similarity search (IVFFlat index)
+Redis 7
+Celery broker + result backend + dedup hash sets + pub/sub
+Apache Airflow 2.9
+Pipeline orchestration, scheduling, task monitoring
+OpenAI text-embedding-3-small
+Embedding generation (1536 dims) — cheapest adequate model
+OpenAI GPT-4o
+Agent reasoning (Supervisor, Researcher, Gap Finder, Spec Writer)
+OpenAI GPT-4o-mini
+Classification + sentiment tasks — lower cost
+Amazon S3
+Data lake — raw, processed, dead-letter, reports layers
+DuckDB (optional)
+Local analytical queries over Parquet files without loading to Postgres
+
+7.5  Infrastructure & DevOps
+Docker + Docker Compose
+Local development — all 5 services + Postgres + Redis + Airflow wired together
+Kubernetes
+Production orchestration — Deployments, Services, HPA autoscaling
+GitHub Actions
+CI/CD — lint → test → build image → push ECR → deploy to EKS
+AWS ECS / EKS
+Container runtime (ECS for simple deploy, EKS for full K8s demo)
+AWS RDS (Postgres)
+Managed database in production
+AWS ElastiCache (Redis)
+Managed Redis in production
+AWS CloudWatch
+Logs, metrics, Airflow task monitoring
+Terraform
+Infrastructure as Code for all AWS resources (optional but recommended)
+
+7.6  Frontend
+Next.js 14 (App Router)
+React framework, server components, API routes
+TypeScript
+Type safety across all components and API calls
+Tailwind CSS
+Utility-first styling
+React Query (TanStack)
+Server state management, caching, background refetch
+Zustand
+Client state (mission selection, agent log stream state)
+Recharts
+Charts for sentiment trends, gap frequency, report summaries
+WebSocket (native)
+Real-time agent log streaming from FastAPI
+
+
+8. Build Plan — 6 Phases, 14 Weeks
+Phases are ordered so each one produces something testable and demonstrable before moving on. Do not skip validation steps — verifying each phase prevents compounding technical debt.
+
+Phase
+Weeks
+Title
+Deliverables
+Skills showcased
+Phase 1
+Weeks 1–2
+Foundation
+Go scraper (Reddit+HN+RSS), FastAPI skeleton, JWT auth, Mission CRUD, PostgreSQL schema + Alembic migrations, Docker Compose
+Go Lang · Python Backend
+Phase 2
+Weeks 3–5
+Data pipeline
+Airflow local setup, S3 3-layer lake, all 8 DAG tasks working end-to-end, Redis dedup, Pydantic validation, pgvector setup + IVFFlat index
+Data Engineering · Python Backend
+Phase 3
+Weeks 6–8
+Core agents
+LangGraph state graph, Supervisor, Researcher (RAG), Gap Finder (web search), Spec Writer + Pydantic output schemas, agent_runs persistence
+AI Development · Distributed Systems
+Phase 4
+Weeks 9–10
+Engagement + reports
+Engagement agent + PRAW posting, approval queue, Report agent + 7am digest, Custom agent builder + contract enforcement
+AI Development · Python Backend
+Phase 5
+Weeks 11–12
+Infrastructure
+Kubernetes manifests for all services, GitHub Actions CI/CD pipeline, AWS deployment (RDS+ElastiCache+ECS/EKS), health checks, HPA autoscaling
+Distributed Systems · Go Lang
+Phase 6
+Weeks 13–14
+Polish + publish
+Next.js dashboard (mission builder + agent logs + digest reader + approval queue), architecture README with diagrams, 2-min demo video, public deployment
+All skills visible on one URL
+
+
+9. Phase-by-Phase Detailed Breakdown
+Phase 1 — Foundation (Weeks 1–2)
+Goal: Everything running locally in Docker Compose, data reaches Postgres
+Week 1 tasks:
+Initialise monorepo structure: RedArky-scraper/, RedArky-api/, RedArky-pipeline/, RedArky-agents/, RedArky-web/
+Write Go scraper: HN Algolia fetch, Reddit PRAW fetch, RSS parser — all concurrent via goroutines
+Go scraper exposes POST /scrape endpoint returning []ScrapedItem JSON
+Add rate limiter (golang.org/x/time/rate) and circuit breaker (gobreaker) to Go scraper
+Week 2 tasks:
+FastAPI app skeleton: project structure, settings, lifespan, health endpoint
+PostgreSQL schema: write all SQL migrations with Alembic for users, missions, data_items, embeddings, agents, agent_runs, reports, engagement_actions
+Implement JWT auth: register, login, refresh token endpoint
+Implement Mission CRUD: create, read, update, delete, list
+Docker Compose: all 5 services + postgres:16 + redis:7 + airflow-webserver + airflow-scheduler
+Validation: call Go scraper from FastAPI and verify records appear in data_items table
+
+Phase 2 — Data Pipeline (Weeks 3–5)
+Goal: Full Airflow DAG runs end-to-end, Parquet in S3, embeddings in pgvector
+Week 3 tasks:
+Airflow local setup inside Docker Compose — verify web UI accessible
+Create S3 buckets (or LocalStack for local dev): raw/, processed/, dead-letter/, reports/
+Write extract_sources task: calls Go scraper, dumps raw JSON to S3
+Write validate_schema task: Pydantic gate, failures to dead-letter
+Week 4 tasks:
+Write clean_deduplicate task: Redis SHA-256 dedup set + quality filters
+Write classify_content task: GPT-4o-mini batch call, Pydantic output schema
+Write upload_processed task: convert to Parquet, upload to S3 processed layer
+Week 5 tasks:
+Write generate_embeddings task: batch embed with text-embedding-3-small, backoff on rate limits
+Write load_postgresql task: bulk insert data_items + pgvector upsert + VACUUM ANALYZE
+Write trigger_agents task: Redis pub/sub publish
+Wire all 8 tasks into mission_intelligence_dag with correct dependencies
+Test: trigger DAG manually for a real mission, verify data in DB and S3
+
+Phase 3 — Core Agents (Weeks 6–8)
+Goal: LangGraph pipeline runs and produces market gaps + mini-specs
+Week 6 tasks:
+Define LangGraph AgentState Pydantic model: all fields typed
+Implement Supervisor node: reads mission config, builds execution plan
+Implement Researcher node: pgvector cosine similarity search, topic clustering
+Week 7 tasks:
+Implement Gap Finder node: takes pain_points, web search per gap, ranks by composite score
+Implement Spec Writer node: generates spec_json per gap, Pydantic-validated structured output
+Wire Supervisor → Researcher → Gap Finder → Spec Writer in LangGraph
+Week 8 tasks:
+Set up Celery workers in RedArky-agents: subscribe to Redis channel, trigger LangGraph on message
+Persist agent_runs after each node: status, input_snapshot, output_json, tokens_used
+Test: run pipeline on real Reddit data, verify market_gaps and spec_json appear in DB
+
+Phase 4 — Engagement + Reports (Weeks 9–10)
+Goal: Morning digest works, engagement queue works, custom agents work
+Week 9 tasks:
+Implement Engagement Agent: PRAW draft comment/post, writes to engagement_actions with status=pending_approval
+FastAPI endpoint: GET /missions/{id}/engagement — list pending actions
+FastAPI endpoint: POST /engagement/{id}/approve — execute posting via PRAW
+FastAPI endpoint: POST /engagement/{id}/reject — discard action
+Week 10 tasks:
+Implement Report Agent: aggregates all agent_run outputs from past 24h, generates Markdown + JSON digest
+Celery Beat: schedule Report Agent at 07:00 UTC daily per active mission
+Implement Custom Agent contract: user saves {data_query, prompt_template, output_schema, schedule} → stored in agents table → executed by a generic CustomAgentWorker
+FastAPI endpoint: POST /missions/{id}/agents — create custom agent
+
+Phase 5 — Infrastructure (Weeks 11–12)
+Goal: Fully deployed on AWS, CI/CD pipeline active
+Week 11 tasks:
+Write Dockerfile for each service (multi-stage builds, minimal final images)
+Write Kubernetes Deployment + Service manifests for all 5 services
+Write HPA (HorizontalPodAutoscaler) for RedArky-agents workers: scale on queue depth metric
+Write Kubernetes ConfigMaps and Secrets management
+Week 12 tasks:
+GitHub Actions CI pipeline: on push to main → lint (ruff, golangci-lint) → pytest → go test → docker build
+GitHub Actions CD pipeline: on merge to main → push image to ECR → kubectl rollout
+AWS setup: RDS Postgres, ElastiCache Redis, ECS/EKS cluster, S3 buckets, CloudWatch log groups
+Optional: Terraform modules for all AWS resources (IaC bonus)
+
+Phase 6 — Polish + Publish (Weeks 13–14)
+Goal: Live URL, clean README, demo video — the portfolio artifacts
+Week 13 tasks:
+Next.js dashboard: Mission creation wizard (name, goal type, subreddits, schedule)
+Agent log stream page: WebSocket connection, real-time output from LangGraph nodes
+Digest reader: morning report cards with gap list, mini-spec viewer, trend charts
+Engagement queue: list of pending actions with approve/reject buttons
+Week 14 tasks:
+Architecture README: system overview diagram, each service explained, tech decisions justified
+Decision log: why Go for scraper, why ELT not ETL, why LangGraph over plain LangChain
+Record 2-minute demo video: create a mission → watch pipeline run → open morning digest
+Deploy to custom domain (e.g. RedArky.yourdomain.com)
+Write a dev.to or personal blog post about the architecture decisions
+
+
+10. Repository & Folder Structure
+RedArky/                               ← monorepo root
+  RedArky-scraper/                     ← Go microservice
+    cmd/scraper/main.go
+    internal/
+      reddit/client.go
+      hn/client.go
+      rss/parser.go
+      scraper/handler.go
+      ratelimit/limiter.go
+    go.mod  go.sum
+    Dockerfile
+
+  RedArky-api/                         ← Python FastAPI
+    app/
+      main.py  config.py  database.py
+      auth/    (jwt, oauth, dependencies)
+      missions/  (router, service, schemas, models)
+      agents/    (router, service, schemas, models)
+      reports/   (router, service)
+      engagement/(router, service)
+      workers/   (celery_app.py, beat_schedule.py)
+    alembic/  (migrations)
+    tests/
+    requirements.txt  Dockerfile
+
+  RedArky-pipeline/                    ← Apache Airflow
+    dags/
+      mission_intelligence_dag.py
+      tasks/
+        extract_sources.py
+        validate_schema.py
+        clean_deduplicate.py
+        classify_content.py
+        upload_processed.py
+        generate_embeddings.py
+        load_postgresql.py
+        trigger_agents.py
+    plugins/  requirements.txt  Dockerfile
+
+  RedArky-agents/                      ← LangGraph + Celery
+    agents/
+      state.py          (AgentState Pydantic model)
+      supervisor.py
+      researcher.py
+      gap_finder.py
+      spec_writer.py
+      engagement.py
+      report.py
+      custom.py
+      graph.py          (LangGraph DAG wiring)
+    workers/celery_app.py
+    tests/  requirements.txt  Dockerfile
+
+  RedArky-web/                         ← Next.js 14
+    app/
+      dashboard/  missions/  digests/  agents/  engagement/
+    components/  lib/  hooks/  types/
+    package.json  Dockerfile
+
+  infra/                               ← Kubernetes + Terraform
+    k8s/  (deployment.yaml per service, services, ingress, hpa)
+    terraform/  (aws_rds, aws_elasticache, aws_s3, aws_ecs)
+
+  .github/workflows/  (ci.yml, cd.yml)
+  docker-compose.yml
+  README.md
+
+
+11. Infrastructure & Cost Breakdown
+
+11.1  Local development (zero cost)
+Docker Compose runs everything locally: PostgreSQL, Redis, all 5 services, Airflow webserver + scheduler. Use LocalStack (free tier) to simulate S3 locally. Total cost: $0.
+
+11.2  Personal cloud deployment (target: ~$3–5/mo)
+Supabase (Postgres + pgvector)
+Free tier — 500MB DB, pgvector supported
+Upstash (Redis)
+Free tier — 10,000 commands/day, pub/sub supported
+Railway or Render
+Free tier — deploy Go + Python services (cold starts accepted)
+AWS S3
+First 5GB free, then ~$0.023/GB. At personal scale: ~$0.10/mo
+OpenAI API
+text-embedding-3-small: ~$0.02/1M tokens. GPT-4o-mini: ~$0.15/1M. Personal use: ~$2–3/mo
+Total
+~$2–5/month for active personal use
+
+11.3  Production AWS deployment (if you take it to SaaS)
+RDS Postgres (db.t3.micro)
+~$15/mo
+ElastiCache Redis (cache.t3.micro)
+~$15/mo
+ECS Fargate (3 tasks)
+~$20/mo
+S3 + CloudWatch
+~$5/mo
+Total (MVP SaaS)
+~$55/mo — recoverable at $29/mo × 2 paying users
+
+
+12. Resume Skills Map
+This table maps every job role you are targeting to the specific components and techniques in RedArky that demonstrate those skills. Use this when writing your resume and preparing for interviews.
+
+Target role
+Component in RedArky
+What it demonstrates
+Python Developer
+RedArky-api
+Production FastAPI with Pydantic v2, async SQLAlchemy, Alembic migrations, JWT auth, Celery, WebSocket — not tutorial code
+Python Developer
+RedArky-agents
+LangGraph state graph, structured LLM outputs, async Celery workers, Pydantic-validated agent contracts
+Python Developer
+RedArky-pipeline (Airflow)
+Complex DAG with 8 tasks, custom operators, error handling, idempotency — demonstrates async Python engineering depth
+Data Engineer
+Airflow DAG (all 8 tasks)
+ELT pattern, idempotent tasks, schema validation, data quality gates, S3 partitioning strategy
+Data Engineer
+S3 data lake (3 layers)
+Raw/processed/dead-letter architecture with Parquet partitioning — standard data engineering pattern
+Data Engineer
+pgvector embedding pipeline
+Batch embedding generation, rate limiting, bulk upsert, IVFFlat indexing — shows ML-adjacent data engineering
+Go Developer
+RedArky-scraper
+Real concurrent Go: goroutines, sync primitives, rate limiter, circuit breaker, idiomatic error handling, Go project layout
+Software Developer
+Docker Compose + K8s manifests
+5-service orchestration, HPA autoscaling, ConfigMaps, Secrets — shows systems thinking not just coding
+Software Developer
+GitHub Actions CI/CD
+lint → test → build → push → deploy pipeline — production-grade automation
+Software Developer
+Redis pub/sub + Celery
+Async message passing between services — distributed systems design pattern
+
+
+13. Interview Preparation
+These are the exact questions you will be asked about this project in technical interviews. Read the answers out loud multiple times before any interview.
+
+Q: Why Go for the scraper instead of Python asyncio?
+A: Go's goroutines handle 200+ concurrent HTTP requests with 10–20× less memory than Python threads. I benchmarked both — Go scraped 1,000 Reddit posts in ~3 seconds vs ~12 seconds with Python asyncio on the same machine. More importantly, the Go service is stateless and compiles to a single binary, making it trivially easy to containerise and scale horizontally. The scraper is also a natural service boundary — it has one job (fetch raw data) and Go's performance characteristics are ideal for that job.
+
+Q: Explain your data pipeline architecture.
+A: I use an ELT pattern — raw data lands in S3 first as an immutable source of truth. This is a deliberate architectural decision: if I write a bug in the classification logic in week 4, I can fix it and replay the entire pipeline from S3 without re-scraping Reddit. Airflow then runs 8 sequential tasks: validate with Pydantic, deduplicate via a Redis hash set (O(1)), classify with GPT-4o-mini, convert to Parquet and upload to S3, batch embed, then bulk upsert into pgvector. Failed records go to a dead-letter prefix — never silently dropped. Every task is idempotent so safe to retry.
+
+Q: How do the AI agents communicate and share state?
+A: I use a LangGraph state graph. Each agent is a node that reads from and writes to a shared Pydantic state object — fully typed and validated at each step. The Supervisor node reads the mission config and constructs the execution plan. Each downstream agent receives typed output from the previous one. If an agent fails, the graph has retry edges. The final state is persisted to the agent_runs table after each node, so I can inspect any run in the dashboard and see exactly what each agent received and produced.
+
+Q: How would you scale this to 10,000 active missions?
+A: All services are stateless and scale horizontally. The Go scraper and Celery workers add nodes trivially. Airflow already distributes tasks across a worker pool. I'd partition missions across Celery queues by priority tier (paid vs free). The real bottleneck is LLM API throughput — I'd add a token-bucket rate limiter per tier and cache embeddings aggressively since many missions overlap in content. For the database, I'd add a read replica for agent queries and keep writes to the primary. pgvector IVFFlat performance degrades above ~1M vectors — I'd move to HNSW index or partition embeddings by mission at that scale.
+
+Q: Why ELT and not ETL? Why S3 before Postgres?
+A: Two reasons. First, S3 is the replay layer — raw data is immutable and I can reprocess from any point. If I change a transform or find a bug, I don't have to re-scrape. Second, Parquet on S3 lets me run analytical queries cheaply (DuckDB locally, Athena in production) without hammering Postgres. Postgres holds the structured, indexed, hot query data. S3 holds the historical archive. Different tools for different access patterns — that's the core of data engineering.
+
+Q: What happens when the OpenAI API is down?
+A: The generate_embeddings and classify_content DAG tasks have exponential backoff with jitter — up to 5 retries over ~2 minutes. Airflow marks tasks as retrying, not failed, during this window. If the API is down for longer, Airflow marks the task failed and sends an alert. The previous successful run's data remains in the DB — the system degrades gracefully (no new data processed) rather than corrupting existing data. For production I'd add a fallback to a local embedding model (e.g. sentence-transformers) for the embedding task specifically.
+
+
+14. Pitfalls to Avoid
+Do not use Twitter/X API
+Costs $100+/month with no meaningful benefit over Reddit + HN at personal scale
+Do not build the frontend first
+The backend is what impresses engineers. Defer the dashboard to Phase 6
+Do not skip the dead-letter queue
+Silently dropping failed records is an anti-pattern. It hides data quality issues
+Do not over-engineer the agents
+Start with simple LLM calls, validate the output quality, then add LangGraph orchestration
+Do not post to Reddit without approval queue
+Automated posting without human gate risks ban and is ethically problematic
+Do not use a single monolithic Python service
+Separation of RedArky-api, RedArky-pipeline, RedArky-agents is intentional — it demonstrates distributed systems thinking
+Do not skip Alembic migrations
+Raw SQL schema scripts are not production practice. Migrations are a required signal of engineering maturity
+Do not hardcode credentials
+Every secret goes in .env / K8s Secrets / AWS Secrets Manager from day one
+
+15. SaaS Potential
+If you decide to commercialise RedArky, the path is clear. The core value proposition is real: founders, indie hackers, and product researchers currently do this research manually, spending 2–4 hours per day browsing Reddit and HN. RedArky automates that entirely.
+
+Pricing model
+Free tier
+1 mission, 2 sources, daily digest — enough to experience the value
+Solo ($29/mo)
+5 missions, all sources, hourly pipeline, 3 custom agents
+Team ($99/mo)
+20 missions, Reddit engagement, team sharing of digests, API access
+Enterprise
+Custom pricing, self-hosted Terraform deploy, dedicated support
+
+Go-to-market
+Build in public on X/LinkedIn — post weekly updates about what gaps RedArky found
+Your own dogfooding is the best marketing — publish the gaps RedArky identifies for you
+Target indie hackers, early-stage founders, and product researchers as early adopters
+Submit to Product Hunt on launch day with a clear "I built this to scratch my own itch" story
+
+The architecture already supports SaaS scale. Adding multi-tenancy is primarily a data isolation concern — every table has user_id and mission_id foreign keys from day one.
+
+
+This document covers the complete definition of the RedArky project. Start with Phase 1 and do not skip the validation step at the end of each phase.

@@ -1,14 +1,15 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, ConfigDict, HttpUrl
 from datetime import datetime
-from typing import Optional
 
 
 class RawItemSchema(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     source: str
     external_id: str
     title: str
-    content: Optional[str] = None
-    url: str
-    author: Optional[str] = None
-    score: Optional[int] = 0
+    content: str | None = None
+    url: HttpUrl
+    author: str | None = None
+    score: int | None = 0
     scraped_at: datetime

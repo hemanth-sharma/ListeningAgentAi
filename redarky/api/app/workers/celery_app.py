@@ -1,15 +1,20 @@
 from celery import Celery
 
+from app.config import settings
+
 celery = Celery(
     "redarky",
-    broker="redis://localhost:6379/0", # "redis://redis:6379/0", # for docker 
-    backend="redis://localhost:6379/0", # "redis://redis:6379/0", # for docker
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
     include=["app.workers.tasks"],
 )
 
-celery.conf.task_routes = {
-    "app.workers.tasks.*": {"queue": "default"},
-}
+celery.conf.task_always_eager = True
+celery.conf.task_eager_propagates = True
+
+# celery.conf.task_routes = {
+#     "app.workers.tasks.*": {"queue": "default"},
+# }
 
 # Optional: Ensure it works well with Windows
 celery.conf.update(

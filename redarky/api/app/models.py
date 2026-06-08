@@ -1,8 +1,7 @@
 from app.ai.models import Agent, AgentRun
 from app.auth.models import User, RedditCredential
-from app.data.models import Report, EngagementAction, DataItem, Embedding, MarketGap
+from app.data.models import Report, EngagementAction, DataItem, Embedding, MarketGap, PipelineBatch
 from app.missions.models import Mission
-# from app.scraper.models import ScrapedResult
 
 from app.database import Base
 
@@ -19,4 +18,5 @@ __all__ = [
     "MarketGap",
     "Agent",
     "AgentRun",
+    "PipelineBatch",
 ]

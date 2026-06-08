@@ -1,25 +1,80 @@
 version: "3.8"
 
+# ─────────────────────────────────────────────
+# Shared env anchors
+# ─────────────────────────────────────────────
+x-airflow-common-env: &airflow-common-env
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow_password@airflow-db:5432/airflow_db
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+  AIRFLOW__CORE__FERNET_KEY: "81HqDtbqAywKSOumSha3BhWNOdQ26slT6K0YaZeZyPs="
+  AIRFLOW__WEBSERVER__SECRET_KEY: "redarky_webserver_secret_2025"
+  AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+  # Airflow Variables — available to all tasks via Variable.get()
+  AIRFLOW_VAR_API_BASE_URL: "http://api:8000"
+  AIRFLOW_VAR_GO_SCRAPER_URL: "http://go_scraper:8081/scrape"
+  AIRFLOW_VAR_S3_BASE_PATH: "/opt/redarky_data_s3"
+  AIRFLOW_VAR_PG_CONN_STR: "postgresql+psycopg2://postgres:password@db:5432/redarky_db"
+  AIRFLOW_VAR_OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+
+x-airflow-common-volumes: &airflow-common-volumes
+  - ./airflow/dags:/opt/airflow/dags
+  - ./airflow/logs:/opt/airflow/logs
+  - ./airflow/plugins:/opt/airflow/plugins
+  - ./airflow/config:/opt/airflow/config
+  - ./airflow/requirements.txt:/requirements.txt
+  # Mount the local-S3 data store so Airflow tasks can read/write files
+  - ../redarky_data_s3:/opt/redarky_data_s3
+
 services:
+  # ─────────────────────────────────────────────
+  # Application Database (pgvector-enabled)
+  # ─────────────────────────────────────────────
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: redarky_db
     ports:
       - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d redarky_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ─────────────────────────────────────────────
+  # Redis (Celery broker)
+  # ─────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ─────────────────────────────────────────────
+  # Go Scraper
+  # ─────────────────────────────────────────────
   go_scraper:
     build: ./scraper
     ports:
       - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
+  # ─────────────────────────────────────────────
+  # FastAPI Application
+  # ─────────────────────────────────────────────
   api:
     build: ./api
     ports:
@@ -27,20 +82,45 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/redarky_db
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - GO_SCRAPER_URL=http://go_scraper:8081/scrape
+      - SECRET_KEY=redarky_secret_2025
+      - LOCAL_S3_BASE_PATH=/opt/redarky_data_s3
+    volumes:
+      - ../redarky_data_s3:/opt/redarky_data_s3
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
+  # ─────────────────────────────────────────────
+  # Celery Worker
+  # ─────────────────────────────────────────────
   worker:
     build: ./api
     command: celery -A app.workers.celery_app.celery worker --loglevel=info
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/redarky_db
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - GO_SCRAPER_URL=http://go_scraper:8081/scrape
+      - SECRET_KEY=redarky_secret_2025
+      - LOCAL_S3_BASE_PATH=/opt/redarky_data_s3
+    volumes:
+      - ../redarky_data_s3:/opt/redarky_data_s3
     depends_on:
-      - redis
-      - db
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
 
+  # ─────────────────────────────────────────────
+  # Celery Flower (monitoring)
+  # ─────────────────────────────────────────────
   flower:
     build: ./api
     command: celery -A app.workers.celery_app.celery flower --port=5555
@@ -51,6 +131,9 @@ services:
     depends_on:
       - worker
 
+  # ─────────────────────────────────────────────
+  # Airflow Metadata Database (separate PG instance)
+  # ─────────────────────────────────────────────
   airflow-db:
     image: postgres:15-alpine
     environment:
@@ -58,50 +141,82 @@ services:
       POSTGRES_PASSWORD: airflow_password
       POSTGRES_DB: airflow_db
     ports:
-      - "5433:5432" # Changed to 5433 so it doesn't conflict with your local Postgres on 5432
-
-  airflow-init:
-    image: apache/airflow:2.10.5-python3.11 # Upgraded for better stability
-    environment:
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@airflow-db:5432/airflow_db
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - "5433:5432"
     volumes:
-      - ./airflow:/opt/airflow
-    depends_on:
-      - airflow-db
-    command: >
-      bash -c "airflow db init && 
-      airflow users create --username admin --firstname Hemant --lastname Sharma --role Admin --email admin@redarky.com --password admin"
+      - airflow_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ─────────────────────────────────────────────
+  # Airflow Init — run once to bootstrap DB & admin user
+  # ─────────────────────────────────────────────
+  airflow-init:
+    image: apache/airflow:2.10.5-python3.11
+    environment:
+      <<: *airflow-common-env
+    volumes: *airflow-common-volumes
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        pip install --no-cache-dir -r /requirements.txt && \
+        airflow db migrate && \
+        airflow users create \
+          --username admin \
+          --firstname Hemant \
+          --lastname Sharma \
+          --role Admin \
+          --email admin@redarky.com \
+          --password admin || true
+    restart: on-failure
+
+  # ─────────────────────────────────────────────
+  # Airflow Webserver
+  # ─────────────────────────────────────────────
   airflow-webserver:
     image: apache/airflow:2.10.5-python3.11
     restart: always
     depends_on:
       airflow-db:
-        condition: service_started
+        condition: service_healthy
       airflow-init:
         condition: service_completed_successfully
     ports:
       - "8080:8080"
-    volumes:
-      - ./airflow:/opt/airflow
+    volumes: *airflow-common-volumes
     environment:
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@airflow-db:5432/airflow_db
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-    command: webserver
+      <<: *airflow-common-env
+    command: >
+      bash -c "pip install --no-cache-dir -r /requirements.txt && airflow webserver"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
+  # ─────────────────────────────────────────────
+  # Airflow Scheduler
+  # ─────────────────────────────────────────────
   airflow-scheduler:
     image: apache/airflow:2.10.5-python3.11
     restart: always
     depends_on:
       airflow-db:
-        condition: service_started
+        condition: service_healthy
       airflow-init:
         condition: service_completed_successfully
-    volumes:
-      - ./airflow:/opt/airflow
+    volumes: *airflow-common-volumes
     environment:
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@airflow-db:5432/airflow_db
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-    command: scheduler
+      <<: *airflow-common-env
+    command: >
+      bash -c "pip install --no-cache-dir -r /requirements.txt && airflow scheduler"
+
+volumes:
+  pg_data:
+  airflow_pg_data:

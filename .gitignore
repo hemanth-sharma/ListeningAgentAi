@@ -2,6 +2,7 @@
 redarky_data/
 redarky/redarky_data/
 redarky/redarky_data_s3/
+redarky_data_s3/
 *.json
 
 # --- Python / FastAPI ---
@@ -49,3 +50,53 @@ vantage_project_plan.docx
 redarky_project_plan.docx
 .env
 .env*
+
+
+# ==========================================
+# Apache Airflow Local Runtime Artifacts
+# ==========================================
+
+# Ignore SQLite database files generated at runtime
+redarky/airflow/*.db
+redarky/airflow/*.db-shm
+redarky/airflow/*.db-wal
+
+# Ignore all runtime logs and execution telemetry
+redarky/airflow/logs/
+
+# Ignore Airflow PID files and webserver/api state trackers
+redarky/airflow/*.pid
+redarky/airflow/*.cfg
+redarky/airflow/webserver_config.py
+
+# Ignore automatically generated credential files or secrets
+redarky/airflow/*.json.generated
+redarky/airflow/*.json
+
+# Ignore local virtual environments if located inside the airflow directory
+redarky/airflow/.venv/
+redarky/airflow/venv/
+
+
+
+
+# Ignore SQLite database files generated at runtime
+redarky/pipeline/*.db
+redarky/pipeline/*.db-shm
+redarky/pipeline/*.db-wal
+
+# Ignore all runtime logs and execution telemetry
+redarky/pipeline/logs/
+
+# Ignore Airflow PID files and webserver/api state trackers
+redarky/pipeline/*.pid
+redarky/pipeline/*.cfg
+redarky/pipeline/webserver_config.py
+
+# Ignore automatically generated credential files or secrets
+redarky/pipeline/*.json.generated
+redarky/pipeline/*.json
+
+# Ignore local virtual environments if located inside the pipeline directory
+redarky/pipeline/.venv/
+redarky/pipeline/venv/

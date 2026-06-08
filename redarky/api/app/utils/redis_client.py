@@ -2,7 +2,7 @@ import redis
 
 from app.config import settings
 
-r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
 
 def is_duplicate(mission_id: str, hash_key: str) -> bool:
     key = f"dedup:{mission_id}"

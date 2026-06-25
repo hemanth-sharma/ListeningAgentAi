@@ -1,5 +1,4 @@
 from celery import Celery
-
 from app.config import settings
 
 celery = Celery(
@@ -9,14 +8,10 @@ celery = Celery(
     include=["app.workers.tasks"],
 )
 
+# Active eager execution allows debugging inside FastAPI's event loop during local tests
 celery.conf.task_always_eager = True
 celery.conf.task_eager_propagates = True
 
-# celery.conf.task_routes = {
-#     "app.workers.tasks.*": {"queue": "default"},
-# }
-
-# Optional: Ensure it works well with Windows
 celery.conf.update(
     task_serializer='json',
     accept_content=['json'],

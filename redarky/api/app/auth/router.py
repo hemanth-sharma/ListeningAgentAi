@@ -7,7 +7,7 @@ from app.database import get_db
 from app.security import create_token, decode_token
 from app.config import settings
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=TokenPair)

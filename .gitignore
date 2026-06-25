@@ -49,6 +49,7 @@ ProjectPlanChatGPT.txt
 vantage_project_plan.docx
 redarky_project_plan.docx
 redarky_project_plan*
+rough*
 .env
 .env*
 
@@ -101,3 +102,4 @@ redarky/pipeline/*.json
 # Ignore local virtual environments if located inside the pipeline directory
 redarky/pipeline/.venv/
 redarky/pipeline/venv/
+

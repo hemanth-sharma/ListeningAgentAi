@@ -23,6 +23,10 @@ from app.models import (
     RedditCredential,
     Report,
     User,
+    Lead,
+    Post,
+    Project,
+    Keyword
 )
 
 

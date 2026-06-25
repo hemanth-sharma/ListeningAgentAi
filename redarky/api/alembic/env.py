@@ -11,23 +11,11 @@ sys.path.insert(0, dirname(dirname(realpath(__file__))))
 from app.config import settings
 from app.database import Base
 # IMPORTANT: Import all models here so Alembic can see the tables
-
-from app.models import (
-    Agent,
-    AgentRun,
-    DataItem,
-    Embedding,
-    EngagementAction,
-    MarketGap,
-    Mission,
-    RedditCredential,
-    Report,
-    User,
-    Lead,
-    Post,
-    Project,
-    Keyword
-)
+from app.auth.models import User
+from app.projects.models import Project
+from app.posts.models import Post
+from app.keywords.models import Keyword
+from app.leads.models import Lead
 
 
 

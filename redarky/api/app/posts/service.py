@@ -9,16 +9,16 @@ from app.posts.schemas import PostCreate, PostUpdate
 async def get_posts(
     db: AsyncSession, 
     project_id: Optional[uuid.UUID] = None,
-    platform: Optional[str] = None,
+    source: Optional[str] = None,
     search: Optional[str] = None
 ) -> Sequence[Post]:
     stmt = select(Post)
     
     if project_id:
         stmt = stmt.where(Post.project_id == project_id)
-    if platform:
-        # Case-insensitive comparison matching your platform query string
-        stmt = stmt.where(Post.platform.ilike(platform))
+    if source:
+        # Case-insensitive comparison matching your source query string
+        stmt = stmt.where(Post.source.ilike(source))
     if search:
         # Searches across title OR content
         stmt = stmt.where(

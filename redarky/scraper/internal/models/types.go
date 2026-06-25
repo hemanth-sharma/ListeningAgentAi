@@ -13,5 +13,7 @@ type ScrapedItem struct {
 
 type ScrapeRequest struct {
 	Query      string   `json:"query"`
-	Subreddits []string `json:"subreddits"`
+	Platforms  []string `json:"platforms"`  // e.g., ["reddit", "hn"]
+	Subreddits []string `json:"subreddits"` // Targeted subreddits if applicable
+	Since      int64    `json:"since"`      // Unix timestamp floor boundary
 }

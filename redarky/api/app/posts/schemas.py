@@ -4,14 +4,14 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 class PostBase(BaseModel):
-    platform: str
+    source: str  
     external_id: str
     title: str
-    content: str
-    author: str
+    content: Optional[str] = None
+    author: Optional[str] = None
     url: str
-    score: Optional[float] = None
-    comments_count: Optional[int] = None
+    score: Optional[int] = 0
+    comments_count: Optional[int] = 0
     created_at_platform: Optional[str] = None
 
 class PostCreate(PostBase):

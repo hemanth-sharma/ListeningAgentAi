@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"redarky/internal/models"
 	"time"
 )
@@ -12,25 +13,33 @@ type RedditResponse struct {
 	Data struct {
 		Children []struct {
 			Data struct {
-				ID       string `json:"id"`
-				Title    string `json:"title"`
-				Selftext string `json:"selftext"`
-				URL      string `json:"url"`
-				Author   string `json:"author"`
-				Score    int    `json:"score"`
+				ID         string  `json:"id"`
+				Title      string  `json:"title"`
+				Selftext   string  `json:"selftext"`
+				URL        string  `json:"url"`
+				Author     string  `json:"author"`
+				Score      int     `json:"score"`
+				CreatedUtc float64 `json:"created_utc"`
 			} `json:"data"`
 		} `json:"children"`
 	} `json:"data"`
 }
 
-func FetchReddit(subreddit string) ([]models.ScrapedItem, error) {
-	url := fmt.Sprintf("https://www.reddit.com/r/%s/hot.json?limit=10", subreddit)
+func FetchReddit(subreddit string, query string, since int64) ([]models.ScrapedItem, error) {
+	var targetURL string
+	escapedQuery := url.QueryEscape(query)
 
-	req, err := http.NewRequest("GET", url, nil)
+	if subreddit != "" {
+		targetURL = fmt.Sprintf("https://www.reddit.com/r/%s/search.json?q=%s&restrict_sr=1&sort=new&limit=50", subreddit, escapedQuery)
+	} else {
+		targetURL = fmt.Sprintf("https://www.reddit.com/search.json?q=%s&sort=new&limit=50", escapedQuery)
+	}
+
+	req, err := http.NewRequest("GET", targetURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "vantage-bot")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RedArkyBot/3.0")
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
@@ -38,8 +47,9 @@ func FetchReddit(subreddit string) ([]models.ScrapedItem, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("reddit returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("reddit access error: status %d", resp.StatusCode)
 	}
 
 	var data RedditResponse
@@ -48,9 +58,13 @@ func FetchReddit(subreddit string) ([]models.ScrapedItem, error) {
 	}
 
 	var results []models.ScrapedItem
-
 	for _, post := range data.Data.Children {
 		p := post.Data
+
+		// Enforce strict time floor boundary filtering
+		if int64(p.CreatedUtc) < since {
+			continue
+		}
 
 		results = append(results, models.ScrapedItem{
 			Source:     "reddit",
@@ -63,6 +77,5 @@ func FetchReddit(subreddit string) ([]models.ScrapedItem, error) {
 			ScrapedAt:  time.Now().Format(time.RFC3339),
 		})
 	}
-
 	return results, nil
 }

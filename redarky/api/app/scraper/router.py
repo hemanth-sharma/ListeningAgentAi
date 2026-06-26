@@ -50,8 +50,12 @@ async def run_scraper(
         since_time = payload.since_timestamp
     else:
         # 30 Days back in seconds = 30 * 24 * 60 * 60
-        since_time = int(time.time()) - 2592000 
+        import time
+        current_epoch = int(time.time())
+        since_time = current_epoch - (30 * 24 * 60 * 60)
+        print(f"DEBUG: Current Time is {current_epoch}, Looking back since: {since_time}")
 
+    # 4. Request targeted data collection via Go microservice for each search term
     # 4. Request targeted data collection via Go microservice for each search term
     all_scraped_items = []
     for query in include_queries:
@@ -63,9 +67,15 @@ async def run_scraper(
                 "since": since_time
             }
             raw_data = await scraper_service.call_scraper(go_payload)
-            all_scraped_items.extend(raw_data)
+            
+            # Defensive Check: ensure raw_data is a valid list before extending
+            if raw_data is not None and isinstance(raw_data, list):
+                all_scraped_items.extend(raw_data)
+            else:
+                print(f"Warning: Go scraper returned unexpected type {type(raw_data)} for query '{query}'")
+                
         except Exception as e:
-            # Continue iterating over remaining queries if single request times out
+            print(f"Error scraping query '{query}': {str(e)}")
             continue
 
     if not all_scraped_items:

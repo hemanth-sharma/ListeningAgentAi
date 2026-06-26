@@ -29,10 +29,21 @@ func FetchReddit(subreddit string, query string, since int64) ([]models.ScrapedI
 	var targetURL string
 	escapedQuery := url.QueryEscape(query)
 
+	// Determine if this is a 1-minute cron check or a historical backfill
+	// If 'since' looks back more than a few hours, use relevance sorting over a month window
+	timeDifference := time.Now().Unix() - since
+	timeParam := "all"
+	sortParam := "new"
+
+	if timeDifference > 86400 { // Greater than 24 hours -> Backfill mode
+		sortParam = "relevance"
+		timeParam = "month"
+	}
+
 	if subreddit != "" {
-		targetURL = fmt.Sprintf("https://www.reddit.com/r/%s/search.json?q=%s&restrict_sr=1&sort=new&limit=50", subreddit, escapedQuery)
+		targetURL = fmt.Sprintf("https://www.reddit.com/r/%s/search.json?q=%s&restrict_sr=1&sort=%s&t=%s&limit=100", subreddit, escapedQuery, sortParam, timeParam)
 	} else {
-		targetURL = fmt.Sprintf("https://www.reddit.com/search.json?q=%s&sort=new&limit=50", escapedQuery)
+		targetURL = fmt.Sprintf("https://www.reddit.com/search.json?q=%s&sort=%s&t=%s&limit=100", escapedQuery, sortParam, timeParam)
 	}
 
 	req, err := http.NewRequest("GET", targetURL, nil)

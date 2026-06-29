@@ -2,21 +2,30 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for PostgreSQL and minimal compiling utilities
+# Install system dependencies, PostgreSQL client, AND Redis Server
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev gcc build-essential \
+    libpq-dev \
+    gcc \
+    build-essential \
+    redis-server \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements from its explicit nested subfolder
+# Copy and install python packages
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy everything inside redarky/api into the working container directory
+# Copy the application code
 COPY . .
+
+# Set up environment variables
+ENV PYTHONPATH=/app
+# Point Celery and app to the local internal Redis instance we are about to boot
+ENV CELERY_BROKER_URL=redis://localhost:6379/0
 
 EXPOSE 8000
 
-# Set Python path explicitly so imports like 'app.config' don't break
-ENV PYTHONPATH=/app
+# Make the start script executable
+RUN chmod +x start.sh
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run our all-in-one process bootloader script
+CMD ["./start.sh"]

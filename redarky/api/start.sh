@@ -3,7 +3,7 @@ set -e
 
 echo "================================────────────────--"
 echo "⚙️ Starting Monolithic Stack Setup..."
-echo "================================────────────────--"
+echo "================────────────────────────────────--"
 
 # 1. Find the installed Postgres binary directory dynamically
 PG_BIN=$(dirname $(find /usr/lib/postgresql/ -name initdb | head -n 1))
@@ -21,8 +21,8 @@ if [ ! -d "/var/lib/postgresql/data" ]; then
     su - postgres -c "$PG_BIN/initdb -D /var/lib/postgresql/data"
 fi
 
-# Start PostgreSQL service via the postgres system user
-su - postgres -c "$PG_BIN/pg_ctl -D /var/lib/postgresql/data -l /var/log/postgresql.log start"
+# FIX: Changed log location from /var/log/postgresql.log to /tmp/postgresql.log
+su - postgres -c "$PG_BIN/pg_ctl -D /var/lib/postgresql/data -l /tmp/postgresql.log start"
 
 # 2. Bootstrap application schemas and users
 echo "🔑 Provisioning default system database user roles..."
@@ -45,5 +45,5 @@ celery -A app.workers.celery_app.celery worker --loglevel=info &
 
 # 6. Boot FastAPI in the foreground
 echo "📡 Launching core FastAPI production engine..."
-echo "================================================--"
+echo "================================────────────────--"
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000

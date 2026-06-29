@@ -5,7 +5,7 @@ celery = Celery(
     "redarky",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.workers.tasks"],
+    include=["app.workers.tasks", "app.workers.matching_tasks", "app.workers.scraper_tasks"],
 )
 
 # Active eager execution allows debugging inside FastAPI's event loop during local tests

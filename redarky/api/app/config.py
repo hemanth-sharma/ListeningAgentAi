@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     # AI services (Stage 3)
     OPENAI_API_KEY: str = ""
 
+    # Apify
+    APIFY_API_TOKEN: str
+    APIFY_WEBHOOK_SECRET: str
+    APIFY_REDDIT_ACTOR_ID: str = "default_actor_id_here"     
+    APIFY_WEBHOOK_URL: str = "http://localhost:8000/ingestion/reddit"
+
+
     model_config = SettingsConfigDict(
         env_file="../.env",
         env_file_encoding="utf-8",

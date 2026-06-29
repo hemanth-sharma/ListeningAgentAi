@@ -5,7 +5,8 @@ from app.projects.router import router as project_router
 from app.keywords.router import router as keyword_router
 from app.posts.router import router as post_router
 from app.leads.router import router as lead_router
-
+from app.ingestion.router import router as ingestion_router
+from app.sources.router import router as sources_router
 
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -87,6 +88,8 @@ app.include_router(project_router)
 app.include_router(keyword_router)
 app.include_router(post_router)
 app.include_router(lead_router)
+app.include_router(ingestion_router)
+app.include_router(sources_router)
 
 # app.include_router(mission_router, prefix="/missions", tags=["missions"])
 # app.include_router(rag_router, prefix="/rag", tags=["rag"])

@@ -53,7 +53,7 @@ rough*
 .env
 .env*
 
-
+node_modules/
 # ==========================================
 # Apache Airflow Local Runtime Artifacts
 # ==========================================

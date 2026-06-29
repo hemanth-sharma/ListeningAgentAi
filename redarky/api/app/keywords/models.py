@@ -18,7 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
-class KeywordType(str, enum.Enum):
+class KeywordType(enum.StrEnum):
     INCLUDE = "include"   # trigger scraping, not a brand mention
     EXCLUDE = "exclude"   # filter out posts containing these (client-side)
     BRAND   = "brand"     # like include, but tagged is_brand_mention=True

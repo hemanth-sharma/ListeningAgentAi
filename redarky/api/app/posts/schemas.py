@@ -12,7 +12,9 @@ class PostBase(BaseModel):
     url: str
     score: Optional[int] = 0
     comments_count: Optional[int] = 0
-    created_at_platform: Optional[str] = None
+    # FIX: Must match BigInteger/Optional[int] coming from Go/Apify
+    created_at_platform: Optional[int] = None
+
 
 class PostCreate(PostBase):
     project_id: UUID

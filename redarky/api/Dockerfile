@@ -2,12 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies, PostgreSQL client, AND Redis Server
+# Install system dependencies, compiling tools, Redis, AND PostgreSQL
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     gcc \
     build-essential \
     redis-server \
+    postgresql \
+    postgresql-contrib \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install python packages
@@ -19,13 +21,12 @@ COPY . .
 
 # Set up environment variables
 ENV PYTHONPATH=/app
-# Point Celery and app to the local internal Redis instance we are about to boot
 ENV CELERY_BROKER_URL=redis://localhost:6379/0
+# Hardcode the database URL to point to our local internal Postgres database instance
+ENV DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/redarky_db
 
 EXPOSE 8000
 
-# Make the start script executable
 RUN chmod +x start.sh
 
-# Run our all-in-one process bootloader script
 CMD ["./start.sh"]

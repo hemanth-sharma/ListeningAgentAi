@@ -1,5 +1,6 @@
 # ListeningAgentAi (Social Listening & Lead Generation System)
-
+#### Backend: https://listening-agent-backend-6k9s.onrender.com/docs
+#### Frontend: https://redarky.vercel.app/queue
 A high-performance, asynchronous AI-driven social listening system built to track, ingest, filter, and process real-time market data from platforms like Reddit to extract intent-driven B2B leads. The system features a monolithic multi-process architecture orchestrated via Docker to run core API routing, database layers, caching layers, and background worker queues seamlessly in a single lightweight instance.
 
 ---
